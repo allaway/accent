@@ -5,7 +5,8 @@
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [database.dlvn :refer [init-db! run-query conn unique-dccs get-asset-view]]
-            [com.brunobonacci.mulog :as mu]))
+            [com.brunobonacci.mulog :as mu]
+            [clojure.string :as string]))
 
 (defonce u ;; user config
   (atom
@@ -70,12 +71,18 @@
       (mu/log ::configuration :info "OPENROUTER_API_KEY set from config.")))
   (let [has-oak (@u :oak)
         has-aak (@u :aak)
-        has-orak (@u :orak)] 
+        has-orak (@u :orak)
+        env-provider (System/getenv "ACCENT_MODEL_PROVIDER")]
     (cond 
       (and has-oak has-aak has-orak init-model-provider) 
       (do 
         (swap! u assoc :model-provider init-model-provider) 
         (mu/log ::configuration :info "Multiple AI providers available. Preferred provider set to" (@u :model-provider)))
+      
+      env-provider
+      (do
+        (swap! u assoc :model-provider (keyword (clojure.string/lower-case env-provider)))
+        (mu/log ::configuration :info "Preferred provider set to" env-provider "from environment variable."))
       
       has-oak
       (do
