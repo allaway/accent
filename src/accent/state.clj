@@ -12,6 +12,7 @@
    {:sat nil
     :oak nil
     :aak nil
+    :orak nil
     :dcc nil
     :asset-view nil
     :profile nil
@@ -23,7 +24,10 @@
 (defn set-api-key!
   "Set API keys for specific model providers (OpenAI or Anthropic)." 
   [provider key] 
-  (let [key-keyword (if (= provider "OpenAI") :oak :aak)]
+  (let [key-keyword (case provider
+                      "OpenAI" :oak
+                      "Anthropic" :aak
+                      "OpenRouter" :orak)]
     (swap! u assoc :model-provider provider)
     (swap! u assoc key-keyword key) 
     true))
@@ -51,7 +55,7 @@
   "Checks for model provider based on available API keys in env and config.
   Takes a config map containing :openai-api-key, :anthropic-api-key, :init-model-provider.
   Sets the model provider based on :model-provider if present."
-  [{:keys [openai-api-key anthropic-api-key init-model-provider] :as config}]
+  [{:keys [openai-api-key anthropic-api-key openrouter-api-key init-model-provider] :as config}]
   (when openai-api-key
     (do 
       (swap! u assoc :oak openai-api-key)
@@ -60,10 +64,15 @@
     (do
       (swap! u assoc :aak anthropic-api-key)
       (mu/log ::configuration :info "ANTHROPIC_API_KEY set from config.")))
+  (when openrouter-api-key
+    (do
+      (swap! u assoc :orak openrouter-api-key)
+      (mu/log ::configuration :info "OPENROUTER_API_KEY set from config.")))
   (let [has-oak (@u :oak)
-        has-aak (@u :aak)] 
+        has-aak (@u :aak)
+        has-orak (@u :orak)] 
     (cond 
-      (and has-oak has-aak init-model-provider) 
+      (and has-oak has-aak has-orak init-model-provider) 
       (do 
         (swap! u assoc :model-provider init-model-provider) 
         (mu/log ::configuration :info "Multiple AI providers available. Preferred provider set to" (@u :model-provider)))
@@ -77,6 +86,11 @@
       (do 
         (swap! u assoc :model-provider :anthropic) 
         (mu/log ::configuration :info "Preferred provider set to Anthropic"))
+      
+      has-orak
+      (do
+        (swap! u assoc :model-provider :openrouter)
+        (mu/log ::configuration :info "Preferred provider set to OpenRouter"))
       
       :else 
       (do 
